@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Consulta grafo IE-RS</title>
+    <style type="text/css">
+        body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; }
+
+        #topo {
+            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 60%, #40916c 100%);
+            padding: 28px 32px 24px;
+            color: #f4f7f4;
+        }
+        #topo h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+        #topo p { margin: 4px 0 20px; font-size: 13px; color: rgba(244,247,244,.72); }
+
+        #controles {
+            display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+            background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 999px;
+            padding: 8px 20px;
+            backdrop-filter: blur(6px);
+            width: fit-content;
+        }
+        #controles label { font-size: 13px; color: rgba(244,247,244,.85); display: flex; align-items: center; gap: 6px; }
+        #controles input[type="text"],
+        #controles input[type="number"] {
+            border: none; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #1b4332;
+            background: rgba(255,255,255,.92);
+        }
+        #controles input[type="text"]:focus,
+        #controles input[type="number"]:focus {
+            outline: none; box-shadow: 0 0 0 3px rgba(64,145,108,.45);
+        }
+        #controles label.csv-label {
+            background: rgba(255,255,255,.92); border-radius: 999px; padding: 5px 14px 5px 16px;
+            color: #1b4332;
+        }
+        #controles input[type="file"] { color: #1b4332; font-size: 13px; max-width: 260px; white-space: nowrap; }
+        #controles input[type="file"]::file-selector-button {
+            background: #1b4332; color: #f4f7f4; border: none; border-radius: 999px;
+            padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 8px;
+        }
+        #controles button {
+            background: #f4f7f4; color: #1b4332; border: none; border-radius: 999px;
+            padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        #controles button:hover:not(:disabled) { background: #dff5e8; }
+        #controles button:disabled { background: rgba(244,247,244,.35); color: rgba(27,67,50,.6); cursor: not-allowed; }
+        #controles a.botao-outline {
+            background: transparent; color: #eafbf1; border: 1px solid rgba(244,247,244,.5);
+            border-radius: 999px; padding: 7px 16px; font-size: 13px; text-decoration: none;
+        }
+        #controles a.botao-outline:hover { background: rgba(255,255,255,.12); }
+        #controles button.botao-outline-btn {
+            background: transparent; color: #eafbf1; border: 1px solid rgba(244,247,244,.5);
+        }
+        #controles button.botao-outline-btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+        #controles button.botao-outline-btn:disabled { background: transparent; color: rgba(244,247,244,.35); border-color: rgba(244,247,244,.2); }
+
+        #status { padding: 8px 16px; font-size: 13px; color: #333; }
+        #status.error { color: #b00020; font-weight: bold; }
+        svg { height: 800px; width: 100%; display: block; }
+
+        .node { font-size: 15px; opacity: .8; cursor: pointer; }
+
+        .link { stroke: #999; stroke-opacity: .5; stroke-width: 1.5px; }
+
+        #cnae-tooltip {
+            position: absolute;
+            display: none;
+            max-width: 320px;
+            background: #222;
+            color: #fff;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 8px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #cnae-tooltip.pinned { pointer-events: auto; }
+        #cnae-tooltip strong { display: block; margin-bottom: 4px; }
+
+        #credito {
+            position: fixed;
+            right: 16px;
+            bottom: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            color: #40916c;
+            background: #fff;
+            padding: 4px 10px;
+            border: 1px solid #e4e1d8;
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 20;
+        }
+        #credito:hover { color: #1b4332; border-color: #40916c; }
+
+        #licenca-tooltip {
+            position: fixed;
+            display: none;
+            right: 16px;
+            bottom: 40px;
+            max-width: 260px;
+            background: #222;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.4;
+            padding: 8px 10px;
+            border-radius: 4px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="topo">
+        <h1>Grafo de Vínculos IE / CPF-CNPJ</h1>
+        <p>Consulta local por Inscrição Estadual ou CPF/CNPJ — dados SEFAZ-RS</p>
+    <div id="controles">
+        <label class="csv-label">CSV: <input type="file" id="csv-file" accept=".csv,.zip"></label>
+        <a class="botao-outline" href="http://www.sefaz.rs.gov.br/ASP/Download/Sitagro/PPR_ATIVO.zip" target="_blank" rel="noopener">Baixar CSV mais recente (SEFAZ-RS)</a>
+        <label>Busca (IE ou CPF/CNPJ): <input type="text" id="query"></label>
+        <label>Nível: <input type="number" id="nivel" value="1" min="1" style="width: 60px;"></label>
+        <button id="buscar-btn" disabled>Buscar</button>
+        <button class="botao-outline-btn" id="baixar-dados-btn" disabled>Baixar dados do grafo</button>
+    </div>
+    </div>
+    <div id="status"></div>
+    <svg id="grafo-svg" width="1400" height="800"></svg>
+    <div id="cnae-tooltip"></div>
+
+    <div id="credito">Por Vilquer de Oliveira</div>
+    <div id="licenca-tooltip">Código livre para uso, cópia e modificação, sem garantias. Licença MIT.</div>
+
+    <script src="lib/d3.v4.min.js"></script>
+    <script src="lib/papaparse.min.js"></script>
+    <script src="lib/fflate.min.js"></script>
+    <script src="assets/consulta-core.js"></script>
+    <script src="assets/cnae-names.js"></script>
+
+    <script type="text/javascript">
+        function renderGraph(graph) {
+            var svg = d3.select('#grafo-svg');
+            svg.selectAll('*').remove();
+            hideCnaeTooltip(true);
+
+            var width = +svg.attr('width');
+            var height = +svg.attr('height');
+
+            svg.append('defs').append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '-0 -5 10 10')
+                .attr('refX', 13)
+                .attr('refY', 0)
+                .attr('orient', 'auto')
+                .attr('markerWidth', 13)
+                .attr('markerHeight', 13)
+                .attr('xoverflow', 'visible')
+                .append('svg:path')
+                .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+                .attr('fill', '#999')
+                .style('stroke', 'none');
+
+            var zoomLayer = svg.append('g').attr('class', 'zoom-layer');
+            svg.call(d3.zoom().scaleExtent([0.1, 8]).on('zoom', function () {
+                zoomLayer.attr('transform', d3.event.transform);
+            }));
+
+            var simulation = d3.forceSimulation()
+                .force('link', d3.forceLink().id(function (d) { return d.id; }).distance(160).strength(0.4))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('collide', d3.forceCollide().radius(16))
+                .force('center', d3.forceCenter(width / 2, height / 2));
+
+            var link = zoomLayer.selectAll('.link')
+                .data(graph.links)
+                .enter()
+                .append('line')
+                .attr('class', 'link');
+
+            link.append('title')
+                .text(function (d) { return d.type; });
+
+            var edgepaths = zoomLayer.selectAll('.edgepath')
+                .data(graph.links)
+                .enter()
+                .append('path')
+                .attr('class', 'edgepath')
+                .attr('fill-opacity', 0)
+                .attr('stroke-opacity', 0)
+                .attr('id', function (d, i) { return 'edgepath' + i; })
+                .style('pointer-events', 'none');
+
+            var edgelabels = zoomLayer.selectAll('.edgelabel')
+                .data(graph.links)
+                .enter()
+                .append('text')
+                .style('pointer-events', 'none')
+                .attr('class', 'edgelabel')
+                .attr('id', function (d, i) { return 'edgelabel' + i; })
+                .attr('font-size', 10)
+                .attr('fill', '#aaa');
+
+            edgelabels.append('textPath')
+                .attr('xlink:href', function (d, i) { return '#edgepath' + i; })
+                .style('text-anchor', 'middle')
+                .style('pointer-events', 'none')
+                .attr('startOffset', '50%')
+                .text(function (d) { return d.type; });
+
+            var node = zoomLayer.selectAll('.node')
+                .data(graph.nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                );
+
+            node.append('circle')
+                .attr('r', 8)
+                .style('fill', function (d) {
+                    if (d.type === 'IE') { return '#39b500'; }
+                    else if (d.type === 'F') { return '#afc9de'; }
+                    else { return '#1f4e79'; }
+                });
+
+            node.append('title')
+                .text(function (d) { return d.label; });
+
+            node.append('text')
+                .attr('dy', -3)
+                .text(function (d) {
+                    if (d.type === 'IE') { return d.type + ' - ' + d.name; }
+                    else if (d.type === 'F') { return 'PF - ' + d.name; }
+                    else { return 'PJ - ' + d.name; }
+                });
+
+            node.filter(function (d) { return d.type === 'IE'; })
+                .on('mouseenter', function (d) { showCnaeTooltip(d, false); })
+                .on('mouseleave', function () { hideCnaeTooltip(false); })
+                .on('click', function (d) {
+                    d3.event.stopPropagation();
+                    showCnaeTooltip(d, true);
+                });
+
+            simulation.nodes(graph.nodes).on('tick', ticked);
+            simulation.force('link').links(graph.links);
+
+            function ticked() {
+                link
+                    .attr('x1', function (d) { return d.source.x; })
+                    .attr('y1', function (d) { return d.source.y; })
+                    .attr('x2', function (d) { return d.target.x; })
+                    .attr('y2', function (d) { return d.target.y; });
+
+                node
+                    .attr('transform', function (d) { return 'translate(' + d.x + ', ' + d.y + ')'; });
+
+                edgepaths.attr('d', function (d) {
+                    return 'M ' + d.source.x + ' ' + d.source.y + ' L ' + d.target.x + ' ' + d.target.y;
+                });
+
+                edgelabels.attr('transform', function (d) {
+                    if (d.target.x < d.source.x) {
+                        var bbox = this.getBBox();
+                        var rx = bbox.x + bbox.width / 2;
+                        var ry = bbox.y + bbox.height / 2;
+                        return 'rotate(180 ' + rx + ' ' + ry + ')';
+                    }
+                    return 'rotate(0)';
+                });
+            }
+
+            function dragstarted(d) {
+                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(d) {
+                d.fx = d3.event.x;
+                d.fy = d3.event.y;
+            }
+        }
+
+        var cnaeTooltipPinned = false;
+
+        function cnaeText(codigo) {
+            if (!codigo || codigo === '0000000') return null;
+            var nome = (window.CnaeNames && window.CnaeNames[codigo]) || 'CNAE não catalogado';
+            return codigo + ' - ' + nome;
+        }
+
+        function showCnaeTooltip(d, pin) {
+            if (cnaeTooltipPinned && !pin) return;
+            var tooltip = document.getElementById('cnae-tooltip');
+            tooltip.textContent = '';
+
+            var titulo = document.createElement('strong');
+            titulo.textContent = 'IE ' + d.name;
+            tooltip.appendChild(titulo);
+
+            var textos = [d.cnae1, d.cnae2, d.cnae3].map(cnaeText).filter(function (t) { return t; });
+            if (!textos.length) {
+                tooltip.appendChild(document.createTextNode('Nenhum CNAE informado'));
+            } else {
+                textos.forEach(function (texto, i) {
+                    if (i > 0) tooltip.appendChild(document.createElement('br'));
+                    tooltip.appendChild(document.createTextNode(texto));
+                });
+            }
+
+            tooltip.style.display = 'block';
+            tooltip.style.left = (d3.event.pageX + 12) + 'px';
+            tooltip.style.top = (d3.event.pageY + 12) + 'px';
+            if (pin) {
+                cnaeTooltipPinned = true;
+                tooltip.classList.add('pinned');
+            }
+        }
+
+        function hideCnaeTooltip(force) {
+            if (cnaeTooltipPinned && !force) return;
+            cnaeTooltipPinned = false;
+            var tooltip = document.getElementById('cnae-tooltip');
+            tooltip.style.display = 'none';
+            tooltip.classList.remove('pinned');
+        }
+
+        document.addEventListener('click', function () {
+            hideCnaeTooltip(true);
+        });
+
+        var licencaPinned = false;
+        var credito = document.getElementById('credito');
+        var licencaTooltip = document.getElementById('licenca-tooltip');
+
+        credito.addEventListener('mouseenter', function () {
+            licencaTooltip.style.display = 'block';
+        });
+        credito.addEventListener('mouseleave', function () {
+            if (!licencaPinned) licencaTooltip.style.display = 'none';
+        });
+        credito.addEventListener('click', function (evt) {
+            evt.stopPropagation();
+            licencaPinned = !licencaPinned;
+            licencaTooltip.style.display = licencaPinned ? 'block' : 'none';
+        });
+        document.addEventListener('click', function () {
+            licencaPinned = false;
+            licencaTooltip.style.display = 'none';
+        });
+
+        window.renderGraph = renderGraph;
+    </script>
+
+    <script src="assets/consulta-ui.js"></script>
+</body>
+</html>
